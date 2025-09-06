@@ -1,10 +1,10 @@
 import torch
-from transformers import AutoModelForSequenceClassification
 import yaml
-from torch.utils.data import DataLoader
 from tqdm import tqdm
+from transformers import AutoModelForSequenceClassification
+
 from src.data import get_dataloaders
-from src.model import get_model
+
 
 def evaluate(split="validation"):
     # Load config
@@ -19,13 +19,12 @@ def evaluate(split="validation"):
     )
 
     loader = {"validation": val_loader, "test": test_loader}[split]
-    num_labels = len(dataset["train"].features["label"].names)
 
     # Load model from saved checkpoint
     if torch.cuda.is_available():
         device = torch.device("cuda")
     elif torch.backends.mps.is_available():
-        device = torch.device("mps")   # Apple GPU
+        device = torch.device("mps")  # Apple GPU
     else:
         device = torch.device("cpu")
 
@@ -50,6 +49,7 @@ def evaluate(split="validation"):
     acc = correct / total
     print(f"✅ {split.capitalize()} Accuracy: {acc:.4f}")
     return acc
+
 
 if __name__ == "__main__":
     evaluate("validation")

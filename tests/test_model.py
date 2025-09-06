@@ -1,8 +1,11 @@
 import os
-import torch
+
 import pytest
+import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
 from src.model import get_model
+
 
 def test_model_forward():
     """Check model builds and forward pass works."""
@@ -17,6 +20,7 @@ def test_model_forward():
     assert outputs.logits.shape == (2, num_labels)
     assert torch.isfinite(outputs.logits).all()
 
+
 @pytest.mark.skipif(not os.path.exists("saved_model"), reason="No trained model found")
 def test_trained_model_loads():
     """Check trained model can be loaded from saved_model folder."""
@@ -25,6 +29,7 @@ def test_trained_model_loads():
     inputs = tokenizer("I feel happy", return_tensors="pt")
     outputs = model(**inputs)
     assert outputs.logits.shape[1] == 6
+
 
 @pytest.mark.skipif(not os.path.exists("saved_model"), reason="No trained model found")
 def test_prediction_pipeline():
@@ -36,4 +41,3 @@ def test_prediction_pipeline():
     pred = torch.argmax(outputs.logits, dim=-1).item()
     assert isinstance(pred, int)
     assert 0 <= pred < 6
-
