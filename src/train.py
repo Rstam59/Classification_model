@@ -1,3 +1,5 @@
+import mlflow
+import mlflow.pytorch
 import torch
 import yaml
 from torch.nn import CrossEntropyLoss
@@ -35,6 +37,23 @@ def train():
 
     criterion = CrossEntropyLoss()
 
+    # MLflow setup
+    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_experiment("emotion-classifier")
+
+    with mlflow.start_run():
+        # log hyperparameters
+        mlflow.log_params(
+            {
+                "model_ckpt": cfg["model_ckpt"],
+                "batch_size": cfg["batch_size"],
+                "epochs": cfg["epochs"],
+                "lr": lr,
+                "max_len": cfg["max_len"],
+            }
+        )
+
+    # Training loop
     for epoch in range(cfg["epochs"]):
         model.train()
         total_loss = 0
@@ -51,14 +70,38 @@ def train():
             scheduler.step()
             total_loss += loss.item()
 
-        print(f"Epoch {epoch+1}, Loss: {total_loss/len(train_loader):.4f}")
+        avg_loss = total_loss / len(train_loader)
 
-    # Save model + tokenizer
+        model.eval()
+        correct, total = 0, 0
+        with torch.no_grad():
+            for batch in val_loader:
+                inputs = {k: v.to(device) for k, v in batch.items() if k != "label"}
+                labels = batch["label"].to(device)
+                outputs = model(**inputs)
+                preds = torch.argmax(outputs.logits, dim=-1)
+                correct += (preds == labels).sum().item()
+                total += labels.size(0)
+
+        val_acc = correct / total if total > 0 else 0.0
+
+        print(f"Epoch {epoch+1}, Loss: {avg_loss:.4f}, Val Acc: {val_acc:.4f}")
+
+        # log metric for this epoch
+        mlflow.log_metric("train_loss", avg_loss, step=epoch)
+        mlflow.log_metric("val_accuracy", val_acc, step=epoch)
+
+    # Save model locally
     save_path = cfg.get("save_model", "saved_model")  # default = saved_model
     model.save_pretrained(save_path)
 
-    AutoTokenizer.from_pretrained(cfg["model_ckpt"]).save_pretrained(save_path)
+    # Define tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(cfg["model_ckpt"])
+    tokenizer.save_pretrained(save_path)
     print(f"✅ Model & tokenizer saved to {save_path}")
+
+    # Log entire folder as MLflow artifact
+    mlflow.log_artifacts(save_path, artifact_path="saved_model")
 
 
 if __name__ == "__main__":

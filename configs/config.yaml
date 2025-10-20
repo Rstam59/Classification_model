@@ -1,6 +1,6 @@
 model_ckpt: 'bert-base-uncased'
 batch_size: 16
 lr: 2e-5
-epochs: 1
+epochs: 2
 max_len: 64
 save_model: "saved_model" 
